@@ -1,0 +1,66 @@
+temperatures_raw:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/GlobalLandTemperaturesByCity.csv
+  load_args:
+    encoding: utf-8
+
+temperatures_no_nulls:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/temperatures_no_nulls.parquet
+
+temperatures_no_duplicates:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/temperatures_no_duplicates.parquet
+
+temperatures_coords_parsed:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/temperatures_coords_parsed.parquet
+
+temperatures_primary:
+  type: pandas.ParquetDataset
+  filepath: data/03_primary/temperatures_primary.parquet
+
+data_preparation_report:
+  type: json.JSONDataset
+  filepath: data/08_reporting/data_preparation_report.json
+
+# data_modeling
+
+temperatures_features:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/temperatures_features.parquet
+
+country_encoder:
+  type: json.JSONDataset
+  filepath: data/06_models/country_encoder.json
+
+train_data:
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/train_data.parquet
+
+test_data:
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/test_data.parquet
+
+model_lr:
+  type: pickle.PickleDataset
+  filepath: data/06_models/model_lr.pkl
+  backend: pickle
+
+model_rf:
+  type: pickle.PickleDataset
+  filepath: data/06_models/model_rf.pkl
+  backend: pickle
+
+metrics_lr:
+  type: json.JSONDataset
+  filepath: data/08_reporting/metrics_lr.json
+
+
+metrics_rf:
+  type: json.JSONDataset
+  filepath: data/08_reporting/metrics_rf.json
+
+model_comparison:
+  type: json.JSONDataset
+  filepath: data/08_reporting/model_comparison.json
