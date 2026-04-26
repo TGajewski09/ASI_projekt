@@ -27,6 +27,17 @@ To install them, run:
 pip install -r requirements.txt
 ```
 
+## How to download raw data
+
+The project downloads the Kaggle dataset automatically before `kedro run`,
+if files are missing from `data/01_raw`.
+
+Before the first run, create a Kaggle API token and place it in:
+
+```text
+conf/local/kaggle.json
+```
+
 ## How to run your Kedro pipeline
 
 You can run your Kedro project with:

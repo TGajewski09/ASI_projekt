@@ -1,0 +1,88 @@
+from kedro.pipeline import Pipeline, node, pipeline
+
+from .nodes import (
+    compare_results,
+    evaluate_model,
+    make_features,
+    split_features_data,
+    train_random_forest_model,
+    tune_random_forest_model,
+)
+
+
+def create_pipeline(**kwargs) -> Pipeline:
+    return pipeline([
+        node(
+            func=make_features,
+            inputs="temperatures_primary",
+            outputs="temperatures_engineered_features",
+            name="make_features_node",
+        ),
+        node(
+            func=split_features_data,
+            inputs=[
+                "temperatures_engineered_features",
+                "params:test_size",
+                "params:random_state",
+            ],
+            outputs=["engineered_train_data", "engineered_test_data"],
+            name="split_features_data_node",
+        ),
+        node(
+            func=train_random_forest_model,
+            inputs=[
+                "engineered_train_data",
+                "params:engineered_features",
+                "params:target",
+                "params:random_state",
+            ],
+            outputs="engineered_model_rf",
+            name="train_random_forest_model_node",
+        ),
+        node(
+            func=evaluate_model,
+            inputs=[
+                "engineered_model_rf",
+                "engineered_test_data",
+                "params:engineered_features",
+                "params:target",
+            ],
+            outputs="engineered_metrics_rf",
+            name="evaluate_model_node",
+        ),
+        node(
+            func=tune_random_forest_model,
+            inputs=[
+                "engineered_train_data",
+                "params:engineered_features",
+                "params:target",
+                "params:random_state",
+                "params:tuning_sample_size",
+                "params:tuning_n_iter",
+                "params:tuning_cv",
+            ],
+            outputs=["tuned_model_rf", "tuning_report"],
+            name="tune_random_forest_model_node",
+        ),
+        node(
+            func=evaluate_model,
+            inputs=[
+                "tuned_model_rf",
+                "engineered_test_data",
+                "params:engineered_features",
+                "params:target",
+            ],
+            outputs="tuned_metrics_rf",
+            name="evaluate_tuned_model_node",
+        ),
+        node(
+            func=compare_results,
+            inputs=[
+                "engineered_metrics_rf",
+                "tuned_metrics_rf",
+                "tuning_report",
+            ],
+            outputs="engineered_model_summary",
+            name="compare_results_node",
+        ),
+    ])

@@ -30,6 +30,44 @@ temperatures_features:
   type: pandas.ParquetDataset
   filepath: data/04_feature/temperatures_features.parquet
 
+temperatures_engineered_features:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/temperatures_engineered_features.parquet
+
+engineered_train_data:
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/engineered_train_data.parquet
+
+engineered_test_data:
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/engineered_test_data.parquet
+
+engineered_model_rf:
+  type: pickle.PickleDataset
+  filepath: data/06_models/engineered_model_rf.pkl
+  backend: pickle
+
+engineered_metrics_rf:
+  type: json.JSONDataset
+  filepath: data/08_reporting/engineered_metrics_rf.json
+
+tuned_model_rf:
+  type: pickle.PickleDataset
+  filepath: data/06_models/tuned_model_rf.pkl
+  backend: pickle
+
+tuned_metrics_rf:
+  type: json.JSONDataset
+  filepath: data/08_reporting/tuned_metrics_rf.json
+
+tuning_report:
+  type: json.JSONDataset
+  filepath: data/08_reporting/tuning_report.json
+
+engineered_model_summary:
+  type: json.JSONDataset
+  filepath: data/08_reporting/engineered_model_summary.json
+
 country_encoder:
   type: json.JSONDataset
   filepath: data/06_models/country_encoder.json
