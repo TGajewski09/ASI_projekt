@@ -47,22 +47,10 @@ engineered_model_rf:
   filepath: data/06_models/engineered_model_rf.pkl
   backend: pickle
 
-engineered_metrics_rf:
-  type: json.JSONDataset
-  filepath: data/08_reporting/engineered_metrics_rf.json
-
 tuned_model_rf:
   type: pickle.PickleDataset
   filepath: data/06_models/tuned_model_rf.pkl
   backend: pickle
-
-tuned_metrics_rf:
-  type: json.JSONDataset
-  filepath: data/08_reporting/tuned_metrics_rf.json
-
-tuning_report:
-  type: json.JSONDataset
-  filepath: data/08_reporting/tuning_report.json
 
 engineered_model_summary:
   type: json.JSONDataset
