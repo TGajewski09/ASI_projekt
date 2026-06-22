@@ -15,8 +15,8 @@ engineered_features:
   - abs_latitude
   - country_label
 
-tuning_sample_size: 100000
-tuning_n_iter: 8
+tuning_sample_size: 500000
+tuning_n_iter: 20
 tuning_cv: 3
 
 target: AverageTemperature

@@ -40,7 +40,7 @@ def split_features_data(
     df: pd.DataFrame, test_size: float, random_state: int
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     
-    """Podział danych na treningowe i testowe."""
+    """Podział danych na treningowe i testowe"""
     train, test = train_test_split(df, test_size=test_size, random_state=random_state)
 
     print(f"[split_features_data] Train: {len(train)}, test: {len(test)}")
@@ -53,7 +53,7 @@ def train_random_forest_model(
     target: str,
     random_state: int,
 ) -> RandomForestRegressor:
-
+    """Trenuje bazowy model Random Forest"""
     model = RandomForestRegressor(
         n_estimators=100,
         max_depth=15,
@@ -74,7 +74,7 @@ def evaluate_model(
     target: str,
 ) -> dict:
 
-    """Podstawowe metryki modelu."""
+    """Podstawowe metryki modelu"""
     y_true = test_data[target]
     y_pred = model.predict(test_data[features])
 
@@ -98,7 +98,7 @@ def tune_random_forest_model(
     tuning_cv: int,
 ) -> tuple[RandomForestRegressor, dict]:
 
-    """Szuka lepszych parametrow dla Random Forest."""
+    """Szuka lepszych parametrow dla Random Forest"""
     if len(train_data) > tuning_sample_size:
         train_sample = train_data.sample(tuning_sample_size, random_state=random_state)
     else:
@@ -140,15 +140,41 @@ def tune_random_forest_model(
 
 def compare_results(metrics_before: dict, metrics_after: dict, tuning_report: dict) -> dict:
 
-    """Porownuje model przed i po optymalizacji."""
-    summary = {
-        "baseline_model": metrics_before,
-        "tuned_model": metrics_after,
-        "best_params": tuning_report["best_params"],
-        "better_model": "tuned_model"
-        if metrics_after["rmse"] < metrics_before["rmse"]
-        else "baseline_model",
+    """Porownuje model przed i po optymalizacji — zwraca zbiorczy raport"""
+    better = "tuned_model" if metrics_after["rmse"] < metrics_before["rmse"] else "baseline_model"
+
+    report = {
+        "feature_engineering": {
+            "features": ["year", "month", "decade", "abs_latitude", "country_label"],
+            "transformations": [
+                "Wydzielenie roku z daty (dt -> year)",
+                "Wydzielenie miesiaca z daty (dt -> month)",
+                "Grupowanie lat w dekady (year -> decade)",
+                "Bezwzgledna szerokosc geograficzna (Latitude -> abs_latitude)",
+                "Label Encoding kraju (Country -> country_label)",
+            ],
+        },
+        "baseline_model": {
+            "params": {"n_estimators": 100, "max_depth": 15},
+            "metrics": metrics_before,
+        },
+        "hyperparameter_tuning": {
+            "method": tuning_report["method"],
+            "sample_rows": tuning_report["sample_rows"],
+            "n_iter": tuning_report["checked_sets"],
+            "cv": tuning_report["cv"],
+            "best_score_cv": tuning_report["best_score"],
+            "best_params": tuning_report["best_params"],
+        },
+        "tuned_model": {
+            "metrics": metrics_after,
+        },
+        "conclusion": {
+            "better_model": better,
+            "rmse_improvement": round(metrics_before["rmse"] - metrics_after["rmse"], 4),
+            "r2_improvement": round(metrics_after["r2"] - metrics_before["r2"], 4),
+        },
     }
 
-    print(f"[compare_results] Lepszy model: {summary['better_model']}")
-    return summary
+    print(f"[compare_results] Lepszy model: {better}")
+    return report
