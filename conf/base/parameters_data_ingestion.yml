@@ -1,0 +1,7 @@
+kaggle:
+  dataset: berkeleyearth/climate-change-earth-surface-temperature-data
+  raw_dir: data/01_raw
+  credentials_dir: conf/local
+  expected_files:
+    - GlobalLandTemperaturesByCity.csv
+    - GlobalTemperatures.csv

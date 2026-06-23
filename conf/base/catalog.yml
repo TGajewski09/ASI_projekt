@@ -1,3 +1,9 @@
+# data_ingestion
+ingestion_report:
+  type: json.JSONDataset
+  filepath: data/08_reporting/ingestion_report.json
+
+# data_preparation
 temperatures_raw:
   type: pandas.CSVDataset
   filepath: data/01_raw/GlobalLandTemperaturesByCity.csv
@@ -25,7 +31,6 @@ data_preparation_report:
   filepath: data/08_reporting/data_preparation_report.json
 
 # data_modeling
-
 temperatures_features:
   type: pandas.ParquetDataset
   filepath: data/04_feature/temperatures_features.parquet

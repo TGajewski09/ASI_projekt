@@ -4,7 +4,7 @@ from datetime import datetime
 import pandas as pd
 
 
-def remove_nulls(df: pd.DataFrame) -> pd.DataFrame:
+def remove_nulls(df: pd.DataFrame, _ingestion_signal: dict) -> pd.DataFrame:
     """Usuwa wiersze gdzie brakuje temperatury."""
     before = len(df)
     df = df.dropna(subset=["AverageTemperature"])

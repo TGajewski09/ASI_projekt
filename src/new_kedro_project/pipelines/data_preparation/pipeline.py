@@ -7,7 +7,7 @@ def create_pipeline(**kwargs) -> Pipeline:
     return pipeline([
         node(
             func=remove_nulls,
-            inputs="temperatures_raw",
+            inputs=["temperatures_raw", "ingestion_report"],
             outputs="temperatures_no_nulls",
             name="remove_nulls_node",
         ),
