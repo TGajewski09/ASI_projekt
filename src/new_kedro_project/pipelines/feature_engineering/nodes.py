@@ -1,11 +1,18 @@
+import mlflow
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.feature_selection import SelectKBest, f_regression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 
 
 def make_features(df: pd.DataFrame) -> pd.DataFrame:
-    
+    """Tworzy cechy pochodne, zachowujac pelna informacje geograficzna
+
+    Do cech bazowych (year, month, Latitude, Longitude) dokladamy przeksztalcenia:
+    decade (grupy lat), abs_latitude (odleglosc od rownika) i country_label (kod kraju).
+    Latitude i Longitude zostaja, zeby nie tracic informacji o polkuli i dlugosci geograficznej
+    """
     df = df.copy()
 
     # 1. Rodzielenie roku i miesiaca z daty
@@ -26,6 +33,8 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
         "year",
         "month",
         "decade",
+        "Latitude",
+        "Longitude",
         "abs_latitude",
         "country_label",
         "AverageTemperature",
@@ -34,6 +43,49 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
 
     print(f"[make_features] Dodano cechy. Liczba krajow: {len(countries)}")
     return features_df
+
+
+def analyze_feature_importance(
+    train_data: pd.DataFrame,
+    features: list[str],
+    target: str,
+    random_state: int,
+    select_k_best: int,
+) -> dict:
+    """Selekcja cech ktore cechy realnie wnosza informacje"""
+
+    # analiza na probce
+    sample = train_data.sample(min(len(train_data), 100_000), random_state=random_state)
+    X = sample[features]
+    y = sample[target]
+
+    # waznosci cech
+    rf = RandomForestRegressor(n_estimators=50, max_depth=12, random_state=random_state, n_jobs=-1)
+    rf.fit(X, y)
+    rf_importances = {
+        feat: round(float(imp), 4) for feat, imp in zip(features, rf.feature_importances_)
+    }
+
+    # SelectKBest
+    k = min(select_k_best, len(features))
+    selector = SelectKBest(score_func=f_regression, k=k)
+    selector.fit(X, y)
+    kbest_scores = {
+        feat: round(float(score), 2) for feat, score in zip(features, selector.scores_)
+    }
+    selected = [feat for feat, keep in zip(features, selector.get_support()) if keep]
+
+    report = {
+        "features_analyzed": features,
+        "sample_rows": len(sample),
+        "random_forest_importance": rf_importances,
+        "select_k_best_f_scores": kbest_scores,
+        "select_k_best_selected": selected,
+        "ranking_by_rf_importance": sorted(rf_importances, key=rf_importances.get, reverse=True),
+    }
+
+    print(f"[analyze_feature_importance] Ranking cech wg RF: {report['ranking_by_rf_importance']}")
+    return report
 
 
 def split_features_data(
@@ -72,6 +124,7 @@ def evaluate_model(
     test_data: pd.DataFrame,
     features: list[str],
     target: str,
+    label: str,
 ) -> dict:
 
     """Podstawowe metryki modelu"""
@@ -84,7 +137,13 @@ def evaluate_model(
         "r2": round(float(r2_score(y_true, y_pred)), 4),
     }
 
-    print(f"[evaluate_model] Metryki: {metrics}")
+    mlflow.log_metrics({
+        f"{label}_mae": metrics["mae"],
+        f"{label}_rmse": metrics["rmse"],
+        f"{label}_r2": metrics["r2"],
+    })
+
+    print(f"[evaluate_model] {label} - {metrics}")
     return metrics
 
 
@@ -136,45 +195,3 @@ def tune_random_forest_model(
 
     print(f"[tune_random_forest_model] Najlepsze parametry: {search.best_params_}")
     return search.best_estimator_, tuning_report
-
-
-def compare_results(metrics_before: dict, metrics_after: dict, tuning_report: dict) -> dict:
-
-    """Porownuje model przed i po optymalizacji — zwraca zbiorczy raport"""
-    better = "tuned_model" if metrics_after["rmse"] < metrics_before["rmse"] else "baseline_model"
-
-    report = {
-        "feature_engineering": {
-            "features": ["year", "month", "decade", "abs_latitude", "country_label"],
-            "transformations": [
-                "Wydzielenie roku z daty (dt -> year)",
-                "Wydzielenie miesiaca z daty (dt -> month)",
-                "Grupowanie lat w dekady (year -> decade)",
-                "Bezwzgledna szerokosc geograficzna (Latitude -> abs_latitude)",
-                "Label Encoding kraju (Country -> country_label)",
-            ],
-        },
-        "baseline_model": {
-            "params": {"n_estimators": 100, "max_depth": 15},
-            "metrics": metrics_before,
-        },
-        "hyperparameter_tuning": {
-            "method": tuning_report["method"],
-            "sample_rows": tuning_report["sample_rows"],
-            "n_iter": tuning_report["checked_sets"],
-            "cv": tuning_report["cv"],
-            "best_score_cv": tuning_report["best_score"],
-            "best_params": tuning_report["best_params"],
-        },
-        "tuned_model": {
-            "metrics": metrics_after,
-        },
-        "conclusion": {
-            "better_model": better,
-            "rmse_improvement": round(metrics_before["rmse"] - metrics_after["rmse"], 4),
-            "r2_improvement": round(metrics_after["r2"] - metrics_before["r2"], 4),
-        },
-    }
-
-    print(f"[compare_results] Lepszy model: {better}")
-    return report

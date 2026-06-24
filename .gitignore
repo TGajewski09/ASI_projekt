@@ -145,6 +145,8 @@ celerybeat-schedule
 # Environments
 .env
 .venv
+.venv-automl/
+.venv-serve/
 env/
 venv/
 ENV/
@@ -159,3 +161,7 @@ venv.bak/
 
 # mlflow local runs
 mlruns/*
+
+mlflow.db
+mlruns/
+mlartifacts/

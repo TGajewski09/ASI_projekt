@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import mlflow
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
@@ -47,10 +48,7 @@ def train_model(
     target: str,
     model_config: dict,
 ) -> object:
-    """Trenuje model na zbiorze treningowym.
-
-    W model_config podajemy 'type' (nazwa modelu) i jego parametry.
-    """
+    """Trenuje model na zbiorze treningowym."""
     model_type = model_config["type"]
     params = {k: v for k, v in model_config.items() if k != "type"}
 
@@ -74,21 +72,28 @@ def evaluate_model(
     y = test_data[target]
     y_pred = model.predict(test_data[features])
 
+    model_name = type(model).__name__
     metrics = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
-        "model": type(model).__name__,
+        "model": model_name,
         "test_rows": len(test_data),
         "mae": round(float(mean_absolute_error(y, y_pred)), 4),
         "rmse": round(float(np.sqrt(mean_squared_error(y, y_pred))), 4),
         "r2": round(float(r2_score(y, y_pred)), 4),
     }
 
-    print(f"[evaluate_model] {metrics['model']} — MAE={metrics['mae']}, RMSE={metrics['rmse']}, R²={metrics['r2']}")
+    mlflow.log_metrics({
+        f"{model_name}_mae": metrics["mae"],
+        f"{model_name}_rmse": metrics["rmse"],
+        f"{model_name}_r2": metrics["r2"],
+    })
+
+    print(f"[evaluate_model] {model_name} - MAE={metrics['mae']}, RMSE={metrics['rmse']}, R2={metrics['r2']}")
     return metrics
 
 
 def compare_models(metrics_lr: dict, metrics_rf: dict) -> dict:
-    """Porównuje modele i układa je od najlepszego do najgorszego (wg R²)."""
+    """Porównuje modele i układa je od najlepszego do najgorszego"""
     ranking = sorted(
         [metrics_lr, metrics_rf],
         key=lambda m: m["r2"],
@@ -110,5 +115,5 @@ def compare_models(metrics_lr: dict, metrics_rf: dict) -> dict:
         ],
     }
 
-    print(f"[compare_models] Najlepszy model: {report['best_model']} (R²={ranking[0]['r2']})")
+    print(f"[compare_models] Najlepszy model: {report['best_model']} (R2={ranking[0]['r2']})")
     return report

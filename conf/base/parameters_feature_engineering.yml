@@ -1,0 +1,21 @@
+engineered_features:
+  - year
+  - month
+  - decade
+  - Latitude
+  - Longitude
+  - abs_latitude
+  - country_label
+
+# liczba cechy SelectKBest
+select_k_best: 5
+
+# MLflow
+eval_labels:
+  engineered: RF_engineered
+  randomized: RF_randomized_search
+
+# RandomizedSearchCV
+tuning_sample_size: 150000
+tuning_n_iter: 20
+tuning_cv: 3

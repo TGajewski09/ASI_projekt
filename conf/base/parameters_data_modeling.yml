@@ -1,25 +1,9 @@
-test_size: 0.2
-random_state: 42
-
 features:
   - year
   - month
   - Latitude
   - Longitude
   - country_code
-
-engineered_features:
-  - year
-  - month
-  - decade
-  - abs_latitude
-  - country_label
-
-tuning_sample_size: 500000
-tuning_n_iter: 20
-tuning_cv: 3
-
-target: AverageTemperature
 
 linear_regression:
   type: LinearRegression

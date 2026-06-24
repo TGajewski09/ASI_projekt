@@ -57,9 +57,29 @@ tuned_model_rf:
   filepath: data/06_models/tuned_model_rf.pkl
   backend: pickle
 
-engineered_model_summary:
-  type: json.JSONDataset
-  filepath: data/08_reporting/engineered_model_summary.json
+feature_selection_report:
+  type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
+  dataset:
+    type: json.JSONDataset
+    filepath: data/08_reporting/feature_selection_report.json
+
+engineered_metrics_rf:
+  type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
+  dataset:
+    type: json.JSONDataset
+    filepath: data/08_reporting/engineered_metrics_rf.json
+
+tuned_metrics_rf:
+  type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
+  dataset:
+    type: json.JSONDataset
+    filepath: data/08_reporting/tuned_metrics_rf.json
+
+tuning_report:
+  type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
+  dataset:
+    type: json.JSONDataset
+    filepath: data/08_reporting/tuning_report.json
 
 country_encoder:
   type: json.JSONDataset
@@ -84,14 +104,30 @@ model_rf:
   backend: pickle
 
 metrics_lr:
-  type: json.JSONDataset
-  filepath: data/08_reporting/metrics_lr.json
-
+  type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
+  dataset:
+    type: json.JSONDataset
+    filepath: data/08_reporting/metrics_lr.json
 
 metrics_rf:
-  type: json.JSONDataset
-  filepath: data/08_reporting/metrics_rf.json
+  type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
+  dataset:
+    type: json.JSONDataset
+    filepath: data/08_reporting/metrics_rf.json
 
 model_comparison:
+  type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
+  dataset:
+    type: json.JSONDataset
+    filepath: data/08_reporting/model_comparison.json
+
+# evaluation
+automl_metrics:
   type: json.JSONDataset
-  filepath: data/08_reporting/model_comparison.json
+  filepath: data/08_reporting/automl_metrics.json
+
+final_model_comparison:
+  type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
+  dataset:
+    type: json.JSONDataset
+    filepath: data/08_reporting/final_model_comparison.json

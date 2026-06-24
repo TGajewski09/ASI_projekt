@@ -1,0 +1,4 @@
+# Parametry wspolne dla pipeline'ow modelujacych (data_modeling i feature_engineering)
+test_size: 0.2
+random_state: 42
+target: AverageTemperature

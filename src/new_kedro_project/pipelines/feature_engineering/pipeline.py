@@ -1,7 +1,7 @@
 from kedro.pipeline import Pipeline, node, pipeline
 
 from .nodes import (
-    compare_results,
+    analyze_feature_importance,
     evaluate_model,
     make_features,
     split_features_data,
@@ -29,6 +29,18 @@ def create_pipeline(**kwargs) -> Pipeline:
             name="split_features_data_node",
         ),
         node(
+            func=analyze_feature_importance,
+            inputs=[
+                "engineered_train_data",
+                "params:engineered_features",
+                "params:target",
+                "params:random_state",
+                "params:select_k_best",
+            ],
+            outputs="feature_selection_report",
+            name="analyze_feature_importance_node",
+        ),
+        node(
             func=train_random_forest_model,
             inputs=[
                 "engineered_train_data",
@@ -46,6 +58,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "engineered_test_data",
                 "params:engineered_features",
                 "params:target",
+                "params:eval_labels.engineered",
             ],
             outputs="engineered_metrics_rf",
             name="evaluate_model_node",
@@ -71,18 +84,9 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "engineered_test_data",
                 "params:engineered_features",
                 "params:target",
+                "params:eval_labels.randomized",
             ],
             outputs="tuned_metrics_rf",
             name="evaluate_tuned_model_node",
-        ),
-        node(
-            func=compare_results,
-            inputs=[
-                "engineered_metrics_rf",
-                "tuned_metrics_rf",
-                "tuning_report",
-            ],
-            outputs="engineered_model_summary",
-            name="compare_results_node",
         ),
     ])

@@ -1,0 +1,36 @@
+server:
+  mlflow_tracking_uri: sqlite:///mlflow.db
+  mlflow_registry_uri: null
+  credentials: null
+  request_header_provider:
+    type: null
+    pass_context: False
+    init_kwargs: {}
+
+tracking:
+  disable_tracking:
+    disable_autologging: True
+    pipelines: []
+
+  experiment:
+    name: temperature_regression
+    create_experiment_kwargs:
+      artifact_location: null
+      tags: null
+    restore_if_deleted: True
+
+  run:
+    id: null
+    name: null
+    nested: True
+
+  params:
+    dict_params:
+      flatten: True
+      recursive: True
+      sep: "."
+    long_params_strategy: tag
+
+ui:
+  port: "5000"
+  host: "127.0.0.1"
