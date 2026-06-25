@@ -93,7 +93,7 @@ def analyze_feature_importance(
 def split_features_data(
     df: pd.DataFrame, test_size: float, random_state: int
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    
+
     """Podział danych na treningowe i testowe"""
     train, test = train_test_split(df, test_size=test_size, random_state=random_state)
 
