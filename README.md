@@ -1,226 +1,381 @@
 # Predykcja średniej temperatury - projekt ASI
 
-Projekt zaliczeniowy na przedmiot **ASI (Architektury rozwiązań SI)**. Celem projektu jest zbudowanie kompletnego systemu uczenia maszynowego: od pobrania i przygotowania danych, przez trenowanie oraz porównywanie modeli, aż po wystawienie API, monitoring i podstawową automatyzację MLOps.
+## Opis problemu
 
-## 1. Opis problemu
+System przewiduje średnią miesięczną temperaturę dla podanego roku, miesiąca
+i współrzędnych geograficznych. Jest to problem regresji, ponieważ model zwraca
+wartość liczbową w stopniach Celsjusza.
 
-Celem systemu jest **przewidywanie średniej miesięcznej temperatury** dla wybranego miejsca i czasu.
+Przykładowe wejście do API:
 
-Taki model może zostać wykorzystany na przykład do uzupełniania brakujących pomiarów historycznych albo jako uproszczony mechanizm szacowania temperatury dla wskazanej lokalizacji.
-
-## 2. Opis danych
-
-W projekcie wykorzystano dataset **[Climate Change: Earth Surface Temperature Data](https://www.kaggle.com/datasets/berkeleyearth/climate-change-earth-surface-temperature-data)** udostępniony przez Berkeley Earth. Głównym plikiem używanym w projekcie jest `GlobalLandTemperaturesByCity.csv`, którego rozmiar wynosi około 508 MB.
-
-| Kolumna                         | Znaczenie                                                                         |
-| ------------------------------- | --------------------------------------------------------------------------------- |
-| `dt`                            | data pomiaru                                                                      |
-| `AverageTemperature`            | średnia temperatura w stopniach Celsjusza, czyli wartość przewidywana przez model |
-| `AverageTemperatureUncertainty` | niepewność pomiaru                                                                |
-| `City`, `Country`               | miasto i kraj                                                                     |
-| `Latitude`, `Longitude`         | współrzędne geograficzne zapisane tekstowo, np. `57.05N`                          |
-
-Po oczyszczeniu danych w zbiorze pozostaje **6 695 755 wierszy** ze **159 krajów**. Zakres danych obejmuje lata **1850-2013**.
-
-Proces czyszczenia danych wygląda następująco:
-
-| Krok                                         | Liczba wierszy |
-| -------------------------------------------- | -------------- |
-| surowe dane                                  | 8 599 212      |
-| po usunięciu braków temperatury              | 8 235 082      |
-| po usunięciu duplikatów                      | 8 190 783      |
-| po odfiltrowaniu lat wcześniejszych niż 1850 | **6 695 755**  |
-
-## 3. Architektura systemu
-
-Architektura projektu została opisana na diagramie znajdującym się w pliku `docs/architecture.drawio`.
-
-System obejmuje kilka głównych części: pipeline danych i trenowania modeli, rejestrację eksperymentów w MLflow, API do wykonywania predykcji, konteneryzację z użyciem Dockera oraz monitoring z wykorzystaniem Prometheusa.
-
-## 4. Pipeline ML
-
-Podstawowy przebieg pipeline'u uruchamiany komendą `kedro run` składa się z trzech etapów:
-
-1. **`data_ingestion`** - pobiera dane z Kaggle do katalogu `data/01_raw` albo korzysta z gotowego pliku CSV, jeżeli dane są już dostępne lokalnie.
-2. **`data_preparation`** - usuwa braki i duplikaty, konwertuje współrzędne geograficzne na wartości liczbowe oraz filtruje dane od roku 1850.
-3. **`data_modeling`** - buduje podstawowy zestaw cech, dzieli dane na zbiór treningowy i testowy, trenuje modele bazowe oraz porównuje ich wyniki.
-
-Dodatkowo projekt zawiera osobno uruchamiane elementy:
-
-* **`feature_engineering`** - tworzy dodatkowe cechy, takie jak `decade` i `abs_latitude`, wykonuje selekcję cech z użyciem RandomForest oraz SelectKBest, a także przeprowadza strojenie hiperparametrów z użyciem `RandomizedSearchCV`.
-* **AutoML** - uruchamiany skryptem `python automl_autogluon.py`. Ten etap wykorzystuje AutoGluon i działa w osobnym środowisku.
-* **`evaluation`** - tworzy wspólny ranking wszystkich modeli na podstawie metryki RMSE.
-
-Pełna kolejność uruchamiania eksperymentów wygląda następująco:
-
-```bash
-kedro run
-kedro run --pipeline feature_engineering
-python automl_autogluon.py
-kedro run --pipeline evaluation
+```text
+year=2013
+month=7
+latitude=52.23
+longitude=21.0
 ```
 
-## 5. Wyniki
+Wynikiem jest przewidywana średnia temperatura oraz informacja, czy dane wejściowe
+wychodzą poza zakres danych treningowych.
 
-Modele bazowe zostały ocenione na zbiorze testowym zawierającym **1 339 151 wierszy**.
+## Dane
 
-| Model            | MAE      | RMSE     | R²        |
-| ---------------- | -------- | -------- | --------- |
-| LinearRegression | 6.99     | 8.81     | 0.238     |
-| **RandomForest** | **0.99** | **1.39** | **0.981** |
+W projekcie wykorzystano dataset
+[Climate Change: Earth Surface Temperature Data](https://www.kaggle.com/datasets/berkeleyearth/climate-change-earth-surface-temperature-data)
+udostępniony przez Berkeley Earth. Głównym plikiem używanym w pipeline jest
+`GlobalLandTemperaturesByCity.csv`.
 
-Najlepszy wynik spośród modeli bazowych uzyskał **RandomForest**. Model przewiduje średnią miesięczną temperaturę z błędem około 1 stopnia Celsjusza według MAE. W pełnym porównaniu, łącznie z AutoML, najlepszy okazał się **AutoGluon** (R² ≈ 0.99, RMSE ≈ 1.05) i to on jest serwowany przez API.
+Najważniejsze kolumny:
 
-Regresja liniowa wypada znacznie słabiej, ponieważ zależność temperatury od lokalizacji, miesiąca i czasu nie ma prostego charakteru liniowego. Temperatura silnie zależy między innymi od sezonowości, szerokości geograficznej oraz lokalnych warunków klimatycznych, dlatego model nieliniowy radzi sobie w tym zadaniu znacznie lepiej.
+| Kolumna | Znaczenie |
+|---|---|
+| `dt` | data pomiaru |
+| `AverageTemperature` | średnia temperatura, czyli wartość przewidywana przez model |
+| `AverageTemperatureUncertainty` | niepewność pomiaru |
+| `City`, `Country` | miasto i kraj |
+| `Latitude`, `Longitude` | współrzędne geograficzne zapisane tekstowo |
 
-## 6. Struktura repozytorium
+Po czyszczeniu i odfiltrowaniu danych starszych niż 1850 rok zostaje
+`6 695 755` wierszy. Pipeline przekształca współrzędne na wartości liczbowe
+i tworzy cechy używane później przez modele.
+
+## Architektura
+
+Projekt składa się z kilku części:
+
+| Część | Technologia | Rola |
+|---|---|---|
+| Pipeline danych i modeli | Kedro | uruchamianie etapów ML |
+| Eksperymenty | MLflow | zapisywanie metryk i artefaktów |
+| AutoML | AutoGluon | trening i wybór najlepszego modelu |
+| API | FastAPI + Uvicorn | endpoint do predykcji temperatury |
+| Monitoring | Prometheus | metryki API i wykrywanie driftu |
+| Uruchomienie produkcyjne | Docker Compose | API oraz Prometheus lokalnie |
+| Automatyzacja | GitHub Actions | CI, CD i Continuous Training |
+
+Diagram architektury znajduje się w katalogu `docs/`:
+
+```text
+docs/architektura.md
+docs/architectura.png
+```
+
+## Pipeline ML
+
+Repozytorium zawiera kilka pipeline'ów Kedro.
+
+Domyślny pipeline:
+
+```text
+data_ingestion -> data_preparation -> data_modeling -> feature_engineering
+```
+
+Pełny pipeline:
+
+```text
+data_ingestion -> data_preparation -> data_modeling -> feature_engineering -> automl -> evaluation
+```
+
+Opis etapów:
+
+| Pipeline | Rola |
+|---|---|
+| `data_ingestion` | pobiera dane z Kaggle albo korzysta z plików dostępnych lokalnie |
+| `data_preparation` | usuwa braki, usuwa duplikaty, przelicza współrzędne i filtruje dane od 1850 roku |
+| `data_modeling` | trenuje modele bazowe: LinearRegression i RandomForest |
+| `feature_engineering` | tworzy cechy `year`, `month`, `decade`, `Latitude`, `Longitude`, `abs_latitude`, wykonuje selekcję cech i strojenie RandomForest |
+| `automl` | trenuje model AutoGluon na danych po `feature_engineering` |
+| `evaluation` | tworzy wspólny ranking modeli |
+
+AutoGluon zapisuje model do:
+
+```text
+data/06_models/autogluon
+```
+
+Pipeline `feature_engineering` generuje też plik:
+
+```text
+data/06_models/drift_baseline.json
+```
+
+Ten plik zawiera zakresy cech liczbowych ze zbioru treningowego i jest używany
+przez API do prostego wykrywania driftu danych.
+
+## Wyniki
+
+Modele bazowe są porównywane na podstawie metryk MAE, RMSE i R2.
+W projekcie trenowane są:
+
+| Model | Miejsce w projekcie |
+|---|---|
+| LinearRegression | `data_modeling` |
+| RandomForest | `data_modeling` |
+| RandomForest z dodatkowymi cechami | `feature_engineering` |
+| RandomForest po strojeniu | `feature_engineering` |
+| AutoGluon | `automl` |
+
+Końcowy ranking modeli jest zapisywany w:
+
+```text
+data/08_reporting/final_model_comparison.json
+```
+
+API korzysta z modelu AutoGluon zapisanego w `data/06_models/autogluon`.
+
+## Struktura repozytorium
 
 ```text
 ASI_projekt/
-├── conf/                  # konfiguracja Kedro, katalogi danych, parametry i MLflow
-├── data/                  # warstwy danych od 01_raw do 08_reporting, ignorowane w gicie
-│   └── sample/            # mała próbka danych używana w Continuous Training
-├── docs/                  # dokumentacja i diagram architektury
-├── notebooks/             # notebooki, między innymi EDA i demo API
-├── scripts/               # skrypty pomocnicze, artefakty API i retrening
-├── src/new_kedro_project/
-│   ├── pipelines/         # pipeline'y Kedro oraz serve.py dla API
-│   └── ...
-├── tests/                 # testy jednostkowe pytest
-├── .github/workflows/     # CI, CD i Continuous Training
-├── automl_autogluon.py    # AutoML z użyciem AutoGluon
-├── Dockerfile             # obraz API
-└── docker-compose.yml     # API oraz Prometheus
+├── .github/workflows/          # CI, CD i Continuous Training
+├── conf/                       # konfiguracja Kedro, katalog danych i parametry
+├── data/                       # dane i artefakty pipeline'u
+│   ├── 01_raw/                 # surowe dane z Kaggle
+│   ├── 02_intermediate/        # dane po etapach czyszczenia
+│   ├── 03_primary/             # główny oczyszczony zbiór
+│   ├── 04_feature/             # dane z cechami
+│   ├── 05_model_input/         # zbiory train/test
+│   ├── 06_models/              # modele i pliki API
+│   └── 08_reporting/           # metryki i raporty
+├── docs/                       # dokumentacja i diagram architektury
+├── notebooks/                  # notebook EDA
+├── scripts/                    # skrypty pomocnicze
+├── src/new_kedro_project/      # kod projektu Kedro i API
+│   └── pipelines/              # pipeline'y Kedro
+├── tests/                      # testy pytest
+├── Dockerfile                  # obraz API
+├── docker-compose.yml          # API + Prometheus
+├── requirements.txt            # zależności główne
+├── requirements-automl.txt     # zależności AutoML
+└── requirements-serve.txt      # zależności API
 ```
 
-## 7. Jak uruchomić projekt
+## Uruchomienie całego flow
 
-### Wymagania
+Komendy poniżej są przygotowane dla Windows PowerShell.
 
-Wymagany jest Python w wersji **3.10 lub nowszej**.
+### 1. Wejście do projektu
 
-### Instalacja
-
-```bash
-python -m venv .venv
+```powershell
+cd ...\ASI_projekt
 ```
 
-Windows:
+### 2. Utworzenie i aktywacja środowiska
 
-```bash
-.venv\Scripts\activate
+Zalecany jest Python 3.11 lub 3.12. Projekt był uruchamiany na Pythonie 3.12.
+Nie należy używać Pythona 3.14, ponieważ zależności AutoGluon mogą się wtedy
+nie zainstalować.
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python --version
 ```
 
-Linux / macOS:
+Jeżeli Python 3.12 nie jest dostępny, można użyć 3.11:
 
-```bash
-source .venv/bin/activate
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python --version
 ```
 
-Instalacja zależności:
+### 3. Instalacja zależności
 
-```bash
+```powershell
+python -m pip install --upgrade pip
 pip install -r requirements.txt
+pip install -r requirements-automl.txt
 ```
 
-Do pobrania danych z Kaggle wymagany jest token API zapisany w pliku:
+Zależności do API są instalowane osobno w obrazie Dockera z pliku
+`requirements-serve.txt`.
+
+### 4. Logowanie do Kaggle
+
+Pipeline pobiera dane z Kaggle, jeżeli plików nie ma jeszcze w `data/01_raw`.
+
+Dane indywidualne do zalogowania do Kaggle należy uzupełnić w pliku `conf/local/kaggle_temp.json`
+
+```powershell
+$env:KAGGLE_CONFIG_DIR = "$PWD\conf\local"
+kaggle auth login
+```
+
+Po zalogowaniu w przeglądarce komenda powinna zakończyć się komunikatem
+o poprawnym logowaniu.
+
+Zamiast logowania można też ręcznie pobrać dataset z Kaggle i umieścić pliki:
 
 ```text
-conf/local/kaggle.json
+data/01_raw/GlobalLandTemperaturesByCity.csv
+data/01_raw/GlobalTemperatures.csv
 ```
 
-### Uruchomienie pipeline'u
+### 5. Uruchomienie pełnego pipeline'u
 
-Podstawowy pipeline:
+Najprostsza komenda do uruchomienia całego przepływu:
 
-```bash
-kedro run
+```powershell
+kedro run --pipeline full
 ```
 
-Pipeline z dodatkowymi cechami i strojeniem modelu:
+Pipeline `full` wykonuje pobranie danych, preprocessing, modele bazowe,
+feature engineering, AutoML i końcową ewaluację.
 
-```bash
-kedro run --pipeline feature_engineering
+AutoGluon może trenować kilka minut. Limit czasu jest ustawiony w:
+
+```text
+conf/base/parameters_automl.yml
 ```
 
-AutoML z użyciem AutoGluon:
+Aktualne najważniejsze parametry:
 
-```bash
-python automl_autogluon.py
+```yaml
+sample_size: 100000
+test_sample_size: 50000
+time_limit: 300
 ```
 
-Ewaluacja i ranking modeli:
+Do szybkiego testu można tymczasowo zmniejszyć `time_limit`, na przykład do `60`.
 
-```bash
-kedro run --pipeline evaluation
+### 6. Sprawdzenie artefaktów po pipeline
+
+Po zakończeniu pipeline'u warto sprawdzić, czy powstały najważniejsze pliki:
+
+```powershell
+Test-Path data\06_models\autogluon
+Test-Path data\06_models\drift_baseline.json
+Test-Path data\08_reporting\automl_metrics.json
+Test-Path data\08_reporting\final_model_comparison.json
 ```
 
-Zalecana pełna kolejność uruchomienia:
+Każda komenda powinna zwrócić `True`.
 
-```bash
-kedro run
-kedro run --pipeline feature_engineering
-python automl_autogluon.py
-kedro run --pipeline evaluation
-```
+### 7. MLflow
 
-### Podgląd eksperymentów w MLflow
+Podgląd eksperymentów:
 
-```bash
+```powershell
 mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
-Interfejs MLflow będzie dostępny pod adresem:
+Adres:
 
 ```text
 http://127.0.0.1:5000
 ```
 
-### Wizualizacja pipeline'u w Kedro-Viz
+### 8. Kedro-Viz
 
-```bash
+Podgląd pipeline'ów:
+
+```powershell
 kedro viz
 ```
 
-### API do predykcji temperatury
+### 9. Uruchomienie API i monitoringu
 
-API można uruchomić przez Docker Compose:
+API jest uruchamiane przez Docker Compose. Przed tym krokiem musi istnieć model
+`data/06_models/autogluon` oraz plik `data/06_models/drift_baseline.json`.
 
-```bash
+```powershell
 docker compose up --build
 ```
 
-Po uruchomieniu dostępne są:
+Po starcie dostępne są:
 
 ```text
 API:        http://localhost:8000/docs
 Prometheus: http://localhost:9090
 ```
 
-Przykładowe zapytanie do API:
+### 10. Zapytanie do API
 
-```bash
-curl -X POST "http://localhost:8000/predict?year=2013&month=7&latitude=52.23&longitude=21.0"
+W drugim terminalu:
+
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8000/predict?year=2013&month=7&latitude=52.23&longitude=21.0"
 ```
 
-### Testy i linting
+Przykład zapytania z danymi spoza zakresu treningowego:
 
-```bash
+```powershell
+Invoke-RestMethod -Method Post "http://localhost:8000/predict?year=1700&month=7&latitude=52.23&longitude=21.0"
+```
+
+W drugim przypadku API powinno zwrócić informację o wykrytym drifcie.
+
+### 11. Zatrzymanie Dockera
+
+```powershell
+docker compose down
+```
+
+## Przydatne komendy Kedro
+
+Uruchomienie domyślnego pipeline'u bez AutoML i końcowej ewaluacji:
+
+```powershell
+kedro run
+```
+
+Uruchomienie samego AutoML, gdy dane po `feature_engineering` już istnieją:
+
+```powershell
+kedro run --pipeline automl
+```
+
+Uruchomienie samej końcowej ewaluacji, gdy metryki modeli już istnieją:
+
+```powershell
+kedro run --pipeline evaluation
+```
+
+## Testy i linting
+
+Instalacja narzędzi testowych:
+
+```powershell
+pip install pytest pytest-mock pytest-cov ruff
+```
+
+Uruchomienie testów i lintingu:
+
+```powershell
 pytest
 ruff check .
 ```
 
-## 8. MLOps: CI, CD i Continuous Training
+## MLOps
 
-W katalogu `.github/workflows/` znajdują się workflowy GitHub Actions odpowiedzialne za automatyzację projektu:
+W katalogu `.github/workflows/` znajdują się trzy workflowy:
 
-* **`ci.yml`** - uruchamiany przy każdym pushu i pull requeście. Wykonuje `ruff check` oraz `pytest`.
-* **`cd.yml`** - uruchamiany po wejściu zmian na gałąź `main`. Buduje obraz Dockera z API i publikuje go w GitHub Container Registry.
-* **`continuous-training.yml`** - uruchamiany ręcznie albo cyklicznie raz w tygodniu. Ponownie trenuje model przy użyciu skryptu `scripts/retrain.py` na próbce danych i zapisuje wynik jako artefakt.
+| Workflow | Rola |
+|---|---|
+| `ci.yml` | uruchamia testy i linting przy pushu oraz pull requeście |
+| `cd.yml` | buduje obraz Dockera z API i publikuje go w GHCR po zmianach na `main` |
+| `continuous-training.yml` | cyklicznie lub ręcznie uruchamia retrening na próbce danych |
 
-## 9. Demo
+Continuous Training korzysta ze skryptu:
 
-Działanie projektu można sprawdzić na dwa sposoby:
+```text
+scripts/retrain.py
+```
 
-* przez **API**, uruchamiając `docker compose up --build` i korzystając z dokumentacji pod adresem `http://localhost:8000/docs`,
-* przez **notebook** `notebooks/demo_api.ipynb`, który zawiera przykładowe predykcje oraz prostą demonstrację wykrywania driftu.
+Jest to lekki retrening demonstracyjny na próbce z `data/sample`, żeby workflow
+mógł działać szybko w GitHub Actions.
+
+## Demo projektu
+
+Najprostsze demo działania projektu:
+
+```powershell
+kedro run --pipeline full
+docker compose up --build
+Invoke-RestMethod -Method Post "http://localhost:8000/predict?year=2013&month=7&latitude=52.23&longitude=21.0"
+Invoke-RestMethod -Method Post "http://localhost:8000/predict?year=1700&month=7&latitude=52.23&longitude=21.0"
+```
+
+Pierwsze zapytanie pokazuje zwykłą predykcję. Drugie pokazuje wykrywanie driftu,
+bo rok 1700 jest poza zakresem danych treningowych.
