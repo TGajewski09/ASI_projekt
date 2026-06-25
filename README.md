@@ -1,108 +1,212 @@
-# New Kedro Project
+# Predykcja średniej temperatury — projekt ASI
 
 [![Powered by Kedro](https://img.shields.io/badge/powered_by-kedro-ffc900?logo=kedro)](https://kedro.org)
+[![CI](https://github.com/TGajewski09/ASI_projekt/actions/workflows/ci.yml/badge.svg)](https://github.com/TGajewski09/ASI_projekt/actions/workflows/ci.yml)
 
-## Overview
+Projekt zaliczeniowy na przedmiot **ASI (Architektury rozwiązań SI)**. Budujemy
+kompletny system uczenia maszynowego: od surowych danych, przez pipeline
+trenujący modele, po wdrożone API z monitoringiem i automatyzacją MLOps.
 
-This is your new Kedro project with PySpark setup, which was generated using `kedro 1.3.1`.
+---
 
-Take a look at the [Kedro documentation](https://docs.kedro.org) to get started.
+## 1. Opis problemu
 
-## Rules and guidelines
+Chcemy **przewidzieć średnią miesięczną temperaturę** (`AverageTemperature`, °C)
+dla wybranego miejsca i czasu. To zadanie **regresji**: na wejściu podajemy rok,
+miesiąc, współrzędne geograficzne i kraj, a model zwraca przewidywaną temperaturę.
 
-In order to get the best out of the template:
+Model może służyć np. do uzupełniania brakujących pomiarów albo jako prosty
+„kalkulator klimatyczny" dla dowolnej lokalizacji.
 
-* Don't remove any lines from the `.gitignore` file we provide
-* Make sure your results can be reproduced by following a [data engineering convention](https://docs.kedro.org/en/stable/faq/faq.html#what-is-data-engineering-convention)
-* Don't commit data to your repository
-* Don't commit any credentials or your local configuration to your repository. Keep all your credentials and local configuration in `conf/local/`
+## 2. Opis danych
 
-## How to install dependencies
+Dane pochodzą z Kaggle: **[Climate Change: Earth Surface Temperature Data](https://www.kaggle.com/datasets/berkeleyearth/climate-change-earth-surface-temperature-data)**
+(Berkeley Earth). Używamy pliku `GlobalLandTemperaturesByCity.csv` (~508 MB).
 
-Declare any dependencies in `requirements.txt` for `pip` installation.
+| Kolumna | Znaczenie |
+|---|---|
+| `dt` | data pomiaru (miesięcznie) |
+| `AverageTemperature` | średnia temperatura w °C (cel modelu) |
+| `AverageTemperatureUncertainty` | niepewność pomiaru |
+| `City`, `Country` | miasto i kraj |
+| `Latitude`, `Longitude` | współrzędne (w pliku jako tekst, np. `57.05N`) |
 
-To install them, run:
+Po wyczyszczeniu danych zostaje **6 695 755 wierszy** ze **159 krajów**, zakres lat
+**1850–2013**. Proces czyszczenia:
+
+| Krok | Liczba wierszy |
+|---|---|
+| surowe dane | 8 599 212 |
+| po usunięciu braków temperatury | 8 235 082 |
+| po usunięciu duplikatów | 8 190 783 |
+| po odfiltrowaniu lat < 1850 | **6 695 755** |
+
+## 3. Architektura systemu
+
+```mermaid
+flowchart LR
+    KAGGLE[(Kaggle dataset)] --> ING[data_ingestion<br/>pobranie danych]
+    ING --> PREP[data_preparation<br/>czyszczenie]
+    PREP --> PRIMARY[(temperatures_primary)]
+
+    PRIMARY --> MOD[data_modeling<br/>LinearRegression + RandomForest]
+    PRIMARY --> FE[feature_engineering<br/>RF + strojenie]
+    PRIMARY --> AML[AutoML<br/>AutoGluon]
+
+    MOD --> EVAL[evaluation<br/>wspólny ranking]
+    FE --> EVAL
+    AML --> EVAL
+
+    MOD -.metryki.-> MLF[(MLflow)]
+    FE -.metryki.-> MLF
+    AML -.metryki.-> MLF
+
+    AML --> API[FastAPI<br/>POST /predict]
+    API --> PROM[Prometheus<br/>/metrics]
+    API --> DOCKER[Docker / docker-compose]
+```
+
+System składa się z kilku warstw:
+
+- **Pipeline danych i modeli** — [Kedro](https://kedro.org): pobieranie, czyszczenie,
+  inżynieria cech, trening i ewaluacja.
+- **Śledzenie eksperymentów** — [MLflow](https://mlflow.org) (przez `kedro-mlflow`),
+  baza `sqlite:///mlflow.db`.
+- **AutoML** — [AutoGluon](https://auto.gluon.ai) automatycznie dobiera i łączy modele.
+- **Serwowanie modelu** — [FastAPI](https://fastapi.tiangolo.com) (`POST /predict`).
+- **Monitoring** — [Prometheus](https://prometheus.io) zbiera metryki API
+  (liczba predykcji, rozkład wyników, opóźnienie, wykryty drift danych).
+- **Konteneryzacja** — Docker + `docker-compose` (API + Prometheus).
+- **MLOps** — GitHub Actions: CI (testy + linting), CD (publikacja obrazu),
+  Continuous Training (ponowne trenowanie).
+
+Szczegółowy opis i diagram do edycji: [`docs/architektura.md`](docs/architektura.md)
+oraz [`docs/architecture.drawio`](docs/architecture.drawio).
+
+## 4. Pipeline ML
+
+Domyślny przebieg (`kedro run`) to trzy pipeline'y po kolei:
+
+1. **`data_ingestion`** — pobiera dane z Kaggle do `data/01_raw` (jeśli ich brak).
+2. **`data_preparation`** — usuwa braki i duplikaty, zamienia współrzędne na liczby,
+   filtruje dane od 1850 r. → `temperatures_primary`.
+3. **`data_modeling`** — buduje cechy, dzieli na train/test i trenuje dwa modele
+   bazowe (LinearRegression, RandomForest), po czym je porównuje.
+
+Osobno uruchamiane:
+
+- **`feature_engineering`** — dodatkowe cechy (`decade`, `abs_latitude`,
+  `country_label`), selekcja cech (RandomForest + SelectKBest) i strojenie
+  hiperparametrów (`RandomizedSearchCV`).
+- **AutoML** — `python automl_autogluon.py` (osobne środowisko, patrz niżej).
+- **`evaluation`** — wspólny ranking wszystkich modeli wg RMSE.
+
+## 5. Wyniki
+
+Modele bazowe na zbiorze testowym (1 339 151 wierszy):
+
+| Model | MAE | RMSE | R² |
+|---|---|---|---|
+| LinearRegression | 6.99 | 8.81 | 0.239 |
+| **RandomForest** | **1.01** | **1.40** | **0.981** |
+
+RandomForest przewiduje temperaturę średnio z błędem ok. 1 °C. Regresja liniowa
+wypada słabo, bo zależność temperatury od pory roku i położenia jest nieliniowa.
+
+## 6. Struktura repozytorium
 
 ```
+ASI_projekt/
+├── conf/                  # konfiguracja Kedro (katalog danych, parametry, MLflow)
+├── data/                  # warstwy danych 01_raw … 08_reporting (ignorowane w gicie)
+│   └── sample/            # mała próbka danych do Continuous Training
+├── docs/                  # dokumentacja i diagram architektury
+├── notebooks/             # notebooki (EDA, demo API)
+├── scripts/               # skrypty pomocnicze (artefakty API, retrening)
+├── src/new_kedro_project/
+│   ├── pipelines/         # pipeline'y Kedro + serve.py (API)
+│   └── ...
+├── tests/                 # testy jednostkowe (pytest)
+├── .github/workflows/     # CI / CD / Continuous Training
+├── automl_autogluon.py    # AutoML (AutoGluon)
+├── Dockerfile             # obraz API
+└── docker-compose.yml     # API + Prometheus
+```
+
+## 7. Jak uruchomić
+
+### Wymagania
+Python 3.10+ (projekt rozwijany na 3.13).
+
+### Instalacja
+```bash
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# Linux / macOS:
+source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-## How to download raw data
+Do pobrania danych z Kaggle potrzebny jest token API zapisany w
+`conf/local/kaggle.json` (instrukcja: [Kaggle API](https://www.kaggle.com/docs/api)).
 
-Before the first run, create a Kaggle API token and place it in:
-
-```text
-conf/local/kaggle.json
+### Uruchomienie pipeline'u
+```bash
+kedro run                              # domyślny przebieg (ingestion + preparation + modeling)
+kedro run --pipeline feature_engineering
+kedro run --pipeline evaluation
 ```
 
-## How to run your Kedro pipeline
-
-You can run your Kedro project with:
-
-```
-kedro run
+### Podgląd eksperymentów w MLflow
+```bash
+mlflow ui --backend-store-uri sqlite:///mlflow.db    # http://127.0.0.1:5000
 ```
 
-## How to test your Kedro project
-
-Have a look at the files `tests/test_run.py` and `tests/pipelines/data_science/test_pipeline.py` for instructions on how to write your tests. Run the tests as follows:
-
-```
-pytest
+### Wizualizacja pipeline'u (Kedro-Viz)
+```bash
+kedro viz
 ```
 
-You can configure the coverage threshold in your project's `pyproject.toml` file under the `[tool.coverage.report]` section.
-
-## Project dependencies
-
-To see and update the dependency requirements for your project use `requirements.txt`. Install the project requirements with `pip install -r requirements.txt`.
-
-[Further information about project dependencies](https://docs.kedro.org/en/stable/kedro_project_setup/dependencies.html#project-specific-dependencies)
-
-## How to work with Kedro and notebooks
-
-> Note: Using `kedro jupyter` or `kedro ipython` to run your notebook provides these variables in scope: `catalog`, `context`, `pipelines` and `session`.
->
-> Jupyter, JupyterLab, and IPython are already included in the project requirements by default, so once you have run `pip install -r requirements.txt` you will not need to take any extra steps before you use them.
-
-### Jupyter
-To use Jupyter notebooks in your Kedro project, you need to install Jupyter:
-
-```
-pip install jupyter
+### API (predykcja temperatury)
+Najprościej przez Dockera (sam zbuduje obraz i podłączy model):
+```bash
+docker compose up --build
+# API:        http://localhost:8000/docs
+# Prometheus: http://localhost:9090
 ```
 
-After installing Jupyter, you can start a local notebook server:
-
-```
-kedro jupyter notebook
-```
-
-### JupyterLab
-To use JupyterLab, you need to install it:
-
-```
-pip install jupyterlab
+Lub lokalnie (wymaga `pip install -r requirements-serve.txt`):
+```bash
+uvicorn new_kedro_project.pipelines.serve:app --app-dir src --port 8000
 ```
 
-You can also start JupyterLab:
-
-```
-kedro jupyter lab
-```
-
-### IPython
-And if you want to run an IPython session:
-
-```
-kedro ipython
+Przykładowe zapytanie:
+```bash
+curl -X POST "http://localhost:8000/predict?year=2013&month=7&latitude=52.23&longitude=21.0&country=Poland"
 ```
 
-### How to ignore notebook output cells in `git`
-To automatically strip out all output cell contents before committing to `git`, you can use tools like [`nbstripout`](https://github.com/kynan/nbstripout). For example, you can add a hook in `.git/config` with `nbstripout --install`. This will run `nbstripout` before anything is committed to `git`.
+### Testy i linting
+```bash
+pytest            # testy jednostkowe
+ruff check .      # linting
+```
 
-> *Note:* Your output cells will be retained locally.
+## 8. MLOps (CI / CD / Continuous Training)
 
-## Package your Kedro project
+W katalogu `.github/workflows/`:
 
-[Further information about building project documentation and packaging your project](https://docs.kedro.org/en/stable/tutorial/package_a_project.html)
+- **`ci.yml`** — na każdy push i pull request: `ruff check` + `pytest`.
+- **`cd.yml`** — po wejściu zmian na `main`: budowa obrazu Docker z API
+  i publikacja w GitHub Container Registry (GHCR).
+- **`continuous-training.yml`** — ręcznie lub co tydzień: ponowne trenowanie
+  modelu (`scripts/retrain.py`) na próbce danych i zapis wyniku jako artefakt.
+
+## 9. Demo
+
+Działanie projektu można zobaczyć na dwa sposoby:
+
+- **API** — `docker compose up --build` i zapytania na `http://localhost:8000/docs`.
+- **Notebook** — [`notebooks/demo_api.ipynb`](notebooks/demo_api.ipynb) z przykładowymi
+  predykcjami i wykrywaniem driftu.
