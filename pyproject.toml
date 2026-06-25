@@ -58,6 +58,7 @@ example_pipeline = "False"
 source_dir = "src"
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 addopts = """
 --cov-report term-missing \
 --cov src/new_kedro_project -ra"""
@@ -82,9 +83,17 @@ select = [
     "I",   # isort
     "UP",  # pyupgrade
     "PL",  # Pylint
-    "T201", # Print Statement
 ]
-ignore = ["E501"]  # Ruff format takes care of line-too-long
+# W tym projekcie wezly Kedro celowo uzywaja print() do raportowania postepu,
+# a API leniwie importuje ciezkie biblioteki - dlatego wylaczamy ponizsze reguly.
+ignore = [
+    "E501",     # dlugosc linii - pilnuje jej formatter
+    "T201",     # print() - swiadomy sposob logowania postepu w wezlach
+    "PLR2004",  # "magic values" w porownaniach - zbyt halasliwe (np. w testach)
+    "PLR0913",  # duzo argumentow - normalne dla wezlow Kedro
+    "PLC0415",  # importy wewnatrz funkcji - uzywane celowo (leniwe ladowanie)
+    "PLW0603",  # global - potrzebne do leniwego, jednorazowego ladowania modelu
+]
 
 [tool.kedro_telemetry]
 project_id = "596131af660e4bc5a60f75e77eceb2c2"
