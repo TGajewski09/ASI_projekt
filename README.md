@@ -1,7 +1,5 @@
-# Predykcja średniej temperatury — projekt ASI
+# Predykcja średniej temperatury - projekt ASI
 
-[![Powered by Kedro](https://img.shields.io/badge/powered_by-kedro-ffc900?logo=kedro)](https://kedro.org)
-[![CI](https://github.com/TGajewski09/ASI_projekt/actions/workflows/ci.yml/badge.svg)](https://github.com/TGajewski09/ASI_projekt/actions/workflows/ci.yml)
 
 Projekt zaliczeniowy na przedmiot **ASI (Architektury rozwiązań SI)**. Budujemy
 kompletny system uczenia maszynowego: od surowych danych, przez pipeline
@@ -12,21 +10,19 @@ trenujący modele, po wdrożone API z monitoringiem i automatyzacją MLOps.
 ## 1. Opis problemu
 
 Chcemy **przewidzieć średnią miesięczną temperaturę** (`AverageTemperature`, °C)
-dla wybranego miejsca i czasu. To zadanie **regresji**: na wejściu podajemy rok,
-miesiąc, współrzędne geograficzne i kraj, a model zwraca przewidywaną temperaturę.
+dla wybranego miejsca i czasu. 
 
-Model może służyć np. do uzupełniania brakujących pomiarów albo jako prosty
-„kalkulator klimatyczny" dla dowolnej lokalizacji.
+Model może służyć np. do uzupełniania brakujących pomiarów albo jako uproszczona prognoza dla dowolnej lokalizacji.
 
 ## 2. Opis danych
 
-Dane pochodzą z Kaggle: **[Climate Change: Earth Surface Temperature Data](https://www.kaggle.com/datasets/berkeleyearth/climate-change-earth-surface-temperature-data)**
+Dataset: **[Climate Change: Earth Surface Temperature Data](https://www.kaggle.com/datasets/berkeleyearth/climate-change-earth-surface-temperature-data)**
 (Berkeley Earth). Używamy pliku `GlobalLandTemperaturesByCity.csv` (~508 MB).
 
 | Kolumna | Znaczenie |
 |---|---|
-| `dt` | data pomiaru (miesięcznie) |
-| `AverageTemperature` | średnia temperatura w °C (cel modelu) |
+| `dt` | data pomiaru |
+| `AverageTemperature` | średnia temperatura w C (cel modelu) |
 | `AverageTemperatureUncertainty` | niepewność pomiaru |
 | `City`, `Country` | miasto i kraj |
 | `Latitude`, `Longitude` | współrzędne (w pliku jako tekst, np. `57.05N`) |
@@ -43,55 +39,18 @@ Po wyczyszczeniu danych zostaje **6 695 755 wierszy** ze **159 krajów**, zakres
 
 ## 3. Architektura systemu
 
-```mermaid
-flowchart LR
-    KAGGLE[(Kaggle dataset)] --> ING[data_ingestion<br/>pobranie danych]
-    ING --> PREP[data_preparation<br/>czyszczenie]
-    PREP --> PRIMARY[(temperatures_primary)]
 
-    PRIMARY --> MOD[data_modeling<br/>LinearRegression + RandomForest]
-    PRIMARY --> FE[feature_engineering<br/>RF + strojenie]
-    PRIMARY --> AML[AutoML<br/>AutoGluon]
-
-    MOD --> EVAL[evaluation<br/>wspólny ranking]
-    FE --> EVAL
-    AML --> EVAL
-
-    MOD -.metryki.-> MLF[(MLflow)]
-    FE -.metryki.-> MLF
-    AML -.metryki.-> MLF
-
-    AML --> API[FastAPI<br/>POST /predict]
-    API --> PROM[Prometheus<br/>/metrics]
-    API --> DOCKER[Docker / docker-compose]
-```
-
-System składa się z kilku warstw:
-
-- **Pipeline danych i modeli** — [Kedro](https://kedro.org): pobieranie, czyszczenie,
-  inżynieria cech, trening i ewaluacja.
-- **Śledzenie eksperymentów** — [MLflow](https://mlflow.org) (przez `kedro-mlflow`),
-  baza `sqlite:///mlflow.db`.
-- **AutoML** — [AutoGluon](https://auto.gluon.ai) automatycznie dobiera i łączy modele.
-- **Serwowanie modelu** — [FastAPI](https://fastapi.tiangolo.com) (`POST /predict`).
-- **Monitoring** — [Prometheus](https://prometheus.io) zbiera metryki API
-  (liczba predykcji, rozkład wyników, opóźnienie, wykryty drift danych).
-- **Konteneryzacja** — Docker + `docker-compose` (API + Prometheus).
-- **MLOps** — GitHub Actions: CI (testy + linting), CD (publikacja obrazu),
-  Continuous Training (ponowne trenowanie).
-
-Szczegółowy opis i diagram do edycji: [`docs/architektura.md`](docs/architektura.md)
-oraz [`docs/architecture.drawio`](docs/architecture.drawio).
+Szczegółowy opis w:  [`docs/architecture.drawio`](docs/architecture.drawio).
 
 ## 4. Pipeline ML
 
-Domyślny przebieg (`kedro run`) to trzy pipeline'y po kolei:
+Domyślny przebieg (`kedro run`) to trzy pipeliney:
 
-1. **`data_ingestion`** — pobiera dane z Kaggle do `data/01_raw` (jeśli ich brak).
-2. **`data_preparation`** — usuwa braki i duplikaty, zamienia współrzędne na liczby,
-   filtruje dane od 1850 r. → `temperatures_primary`.
-3. **`data_modeling`** — buduje cechy, dzieli na train/test i trenuje dwa modele
-   bazowe (LinearRegression, RandomForest), po czym je porównuje.
+1. **`data_ingestion`** - pobiera dane z Kaggle do `data/01_raw` bądź korzysta z gotowgo CSV.
+2. **`data_preparation`** - usuwa braki i duplikaty, zamienia współrzędne na liczby,
+   filtruje dane od 1850
+3. **`data_modeling`** - buduje cechy, dzieli na train/test i trenuje dwa modele
+   bazowe (LinearRegression, RandomForest), a potem porównuje.
 
 Osobno uruchamiane:
 
@@ -136,7 +95,7 @@ ASI_projekt/
 ## 7. Jak uruchomić
 
 ### Wymagania
-Python 3.10+ (projekt rozwijany na 3.13).
+Python 3.10+ 
 
 ### Instalacja
 ```bash
@@ -150,11 +109,11 @@ pip install -r requirements.txt
 ```
 
 Do pobrania danych z Kaggle potrzebny jest token API zapisany w
-`conf/local/kaggle.json` (instrukcja: [Kaggle API](https://www.kaggle.com/docs/api)).
+`conf/local/kaggle.json`
 
 ### Uruchomienie pipeline'u
 ```bash
-kedro run                              # domyślny przebieg (ingestion + preparation + modeling)
+kedro run  #  przebieg default czyli (ingestion + preparation + modeling)
 kedro run --pipeline feature_engineering
 kedro run --pipeline evaluation
 ```
@@ -170,16 +129,11 @@ kedro viz
 ```
 
 ### API (predykcja temperatury)
-Najprościej przez Dockera (sam zbuduje obraz i podłączy model):
+Trzeba odpalić docker compose
 ```bash
 docker compose up --build
 # API:        http://localhost:8000/docs
 # Prometheus: http://localhost:9090
-```
-
-Lub lokalnie (wymaga `pip install -r requirements-serve.txt`):
-```bash
-uvicorn new_kedro_project.pipelines.serve:app --app-dir src --port 8000
 ```
 
 Przykładowe zapytanie:
