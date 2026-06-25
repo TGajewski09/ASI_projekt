@@ -7,12 +7,14 @@ from sklearn.model_selection import RandomizedSearchCV, train_test_split
 
 
 def make_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Tworzy cechy pochodne, zachowujac pelna informacje geograficzna
+    """Tworzy cechy pochodne na podstawie daty i wspolrzednych.
 
     Dla cech bazowych (year, month, Latitude, Longitude) tworzymy przeksztalcenia:
     - decade (grupy lat)
-    - abs_latitude (odleglosc od rownika)
-    - country_label (kod kraju).
+    - abs_latitude (odleglosc od rownika).
+
+    Polozenie opisuja same wspolrzedne (Latitude, Longitude), dlatego nie
+    korzystamy juz z kraju - byloby to nadmiarowe.
     """
     df = df.copy()
 
@@ -27,9 +29,6 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
     # 3. Odleglosc od rownika
     df["abs_latitude"] = df["Latitude"].abs()
 
-    # 4. Label Encoding dla kraju
-    df["country_label"], countries = pd.factorize(df["Country"])
-
     cols = [
         "year",
         "month",
@@ -37,13 +36,11 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
         "Latitude",
         "Longitude",
         "abs_latitude",
-        "Country",
-        "country_label",
         "AverageTemperature",
     ]
     features_df = df[cols]
 
-    print(f"[make_features] Dodano cechy. Liczba krajow: {len(countries)}")
+    print(f"[make_features] Przygotowano cechy dla {len(features_df)} wierszy.")
     return features_df
 
 

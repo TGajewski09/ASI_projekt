@@ -75,6 +75,8 @@ surowe    częściowo czyste   gotowe do      cechy        train / test     mode
   obraz buduje się szybko i da się go zbudować automatycznie w CI/CD.
 - **Leniwe ładowanie modelu.** `serve.py` ładuje model dopiero przy pierwszym
   zapytaniu, więc moduł można zaimportować w testach bez ciężkich bibliotek.
+- **Bez cechy `Country`.** Położenie opisują współrzędne (`Latitude`,
+  `Longitude`), więc kraj byłby informacją nadmiarową — model go nie używa.
 
 ## Monitoring i drift
 
@@ -87,5 +89,4 @@ API wystawia metryki Prometheus na `/metrics`:
 
 **Drift** wykrywamy prosto: dla każdego zapytania sprawdzamy, czy rok, miesiąc
 i współrzędne mieszczą się w zakresach ze zbioru treningowego (plik
-`drift_baseline.json`) oraz czy kraj jest znany. Jeśli nie — oznaczamy to w
-odpowiedzi i zliczamy w metryce.
+`drift_baseline.json`). Jeśli nie — oznaczamy to w odpowiedzi i zliczamy w metryce.

@@ -81,10 +81,6 @@ tuning_report:
     type: json.JSONDataset
     filepath: data/08_reporting/tuning_report.json
 
-country_encoder:
-  type: json.JSONDataset
-  filepath: data/06_models/country_encoder.json
-
 train_data:
   type: pandas.ParquetDataset
   filepath: data/05_model_input/train_data.parquet

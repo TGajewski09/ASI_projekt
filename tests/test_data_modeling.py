@@ -7,23 +7,28 @@ from new_kedro_project.pipelines.data_modeling.nodes import (
 )
 
 
-def test_build_features_encodes_countries():
+def test_build_features_selects_expected_columns():
     df = pd.DataFrame(
         {
             "dt": pd.to_datetime(["2000-01-15", "2005-06-20"]),
             "Latitude": [10.0, 20.0],
             "Longitude": [30.0, 40.0],
-            "Country": ["Atlantis", "Narnia"],
             "AverageTemperature": [1.0, 2.0],
         }
     )
 
-    features, encoder = build_features(df)
+    features = build_features(df)
 
-    assert encoder == {"Atlantis": 0, "Narnia": 1}
-    assert list(features["country_code"]) == [0, 1]
+    assert list(features.columns) == [
+        "year",
+        "month",
+        "Latitude",
+        "Longitude",
+        "AverageTemperature",
+    ]
     assert list(features["year"]) == [2000, 2005]
-    assert "AverageTemperature" in features.columns
+    # kraju juz nie kodujemy - opisuja go wspolrzedne
+    assert "country_code" not in features.columns
 
 
 def test_compare_models_ranks_by_r2():

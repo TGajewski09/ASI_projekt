@@ -27,7 +27,7 @@ MODEL_OUT = PROJECT_ROOT / "data/06_models/retrained_model.pkl"
 REPORT_OUT = PROJECT_ROOT / "data/08_reporting/retrain_metrics.json"
 
 TARGET = "AverageTemperature"
-FEATURES = ["year", "month", "decade", "Latitude", "Longitude", "abs_latitude", "country_label"]
+FEATURES = ["year", "month", "decade", "Latitude", "Longitude", "abs_latitude"]
 
 
 def make_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -38,7 +38,6 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
     df["month"] = df["dt"].dt.month
     df["decade"] = (df["year"] // 10) * 10
     df["abs_latitude"] = df["Latitude"].abs()
-    df["country_label"], _ = pd.factorize(df["Country"])
     return df
 
 

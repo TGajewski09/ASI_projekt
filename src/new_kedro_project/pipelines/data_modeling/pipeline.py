@@ -14,7 +14,7 @@ def create_pipeline(**kwargs) -> Pipeline:
         node(
             func=build_features,
             inputs="temperatures_primary",
-            outputs=["temperatures_features", "country_encoder"],
+            outputs="temperatures_features",
             name="build_features_node",
         ),
         node(

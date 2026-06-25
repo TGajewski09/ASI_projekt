@@ -26,13 +26,11 @@ DRIFT_COUNTER = Counter(
 # wiec sciezke da sie podmienic zmienna srodowiskowa MODEL_DIR.
 MODEL_DIR = Path(os.getenv("MODEL_DIR", "data/06_models"))
 
-# enkoder Country -> country_label oraz zakresy treningowe (do wykrywania driftu)
-with open(MODEL_DIR / "country_label_encoder.json", encoding="utf-8") as f:
-    country_encoder: dict = json.load(f)
+# zakresy cech ze zbioru treningowego (do wykrywania driftu)
 with open(MODEL_DIR / "drift_baseline.json", encoding="utf-8") as f:
     baseline = json.load(f)
 
-FEATURES = ["year", "month", "decade", "Latitude", "Longitude", "abs_latitude", "country_label"]
+FEATURES = ["year", "month", "decade", "Latitude", "Longitude", "abs_latitude"]
 
 # Model AutoGluon ladujemy leniwie - dopiero przy pierwszym zapytaniu. Dzieki temu
 # modul mozna zaimportowac (np. w testach CI) bez ciezkiego pakietu autogluon
@@ -51,7 +49,7 @@ def get_predictor():
     return _predictor
 
 
-def check_drift(year: int, month: int, latitude: float, longitude: float, country: str) -> list[str]:
+def check_drift(year: int, month: int, latitude: float, longitude: float) -> list[str]:
     """
     Sprawdza czy wejscia mieszcza sie w zakresie danych treningowych
     zwraca liste cech odbiegających od rozkładu treningowego
@@ -63,17 +61,13 @@ def check_drift(year: int, month: int, latitude: float, longitude: float, countr
         if value < bounds["min"] or value > bounds["max"]:
             drifted.append(feature)
             DRIFT_COUNTER.labels(feature=feature).inc()
-    if country not in baseline["known_countries"]:
-        drifted.append("Country")
-        DRIFT_COUNTER.labels(feature="Country").inc()
     return drifted
 
 
 @app.post("/predict")
-def predict(year: int, month: int, latitude: float, longitude: float, country: str):
+def predict(year: int, month: int, latitude: float, longitude: float):
     with LATENCY_HISTOGRAM.time():
-        drifted = check_drift(year, month, latitude, longitude, country)
-        code = country_encoder.get(country, -1)
+        drifted = check_drift(year, month, latitude, longitude)
 
         input_data = pd.DataFrame([{
             "year": year,
@@ -82,7 +76,6 @@ def predict(year: int, month: int, latitude: float, longitude: float, country: s
             "Latitude": latitude,
             "Longitude": longitude,
             "abs_latitude": abs(latitude),
-            "country_label": code,
         }])[FEATURES]
 
         prediction = float(get_predictor().predict(input_data).iloc[0])
@@ -91,7 +84,6 @@ def predict(year: int, month: int, latitude: float, longitude: float, country: s
 
         return {
             "avg_temperature_c": round(prediction, 3),
-            "country_label": code,
             "drift_detected": bool(drifted),
             "drift_features": drifted,
         }

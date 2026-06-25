@@ -5,7 +5,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # duzy model AutoGluon nie jest w obrazie - podajemy go z dysku (read-only)
       - ./data/06_models/autogluon:/app/data/06_models/autogluon:ro
     networks:
       - mlops-network

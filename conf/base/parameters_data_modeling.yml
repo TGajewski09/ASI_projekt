@@ -3,7 +3,6 @@ features:
   - month
   - Latitude
   - Longitude
-  - country_code
 
 linear_regression:
   type: LinearRegression

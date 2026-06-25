@@ -5,7 +5,6 @@ engineered_features:
   - Latitude
   - Longitude
   - abs_latitude
-  - country_label
 
 # liczba cechy SelectKBest
 select_k_best: 5

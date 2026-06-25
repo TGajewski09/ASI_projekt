@@ -13,7 +13,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 PROJECT_ROOT = Path(__file__).parent
 TARGET = "AverageTemperature"
-FEATURES = ["year", "month", "decade", "Latitude", "Longitude", "abs_latitude", "country_label"]
+FEATURES = ["year", "month", "decade", "Latitude", "Longitude", "abs_latitude"]
 SAMPLE_SIZE = 100_000
 TIME_LIMIT = 300
 TRACKING_URI = "sqlite:///mlflow.db"
