@@ -1,0 +1,39 @@
+# Continuous Training - automatyczne ponowne trenowanie modelu
+# Uruchamiane recznie (workflow_dispatch) lub wg harmonogramu (co poniedzialek).
+# Trenuje model na probce danych i zapisuje wynik jako artefakt do pobrania.
+name: Continuous Training
+
+on:
+  workflow_dispatch: {}      # przycisk "Run workflow" w zakladce Actions
+  schedule:
+    - cron: "0 6 * * 1"      # w kazdy poniedzialek o 06:00 UTC
+
+jobs:
+  retrain:
+    name: Ponowne trenowanie modelu
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pobranie kodu
+        uses: actions/checkout@v4
+
+      - name: Ustawienie Pythona
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Instalacja zaleznosci
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas scikit-learn
+
+      - name: Retrening modelu na probce danych
+        run: python scripts/retrain.py
+
+      - name: Zapis modelu i metryk jako artefakt
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrained-model
+          path: |
+            data/06_models/retrained_model.pkl
+            data/08_reporting/retrain_metrics.json

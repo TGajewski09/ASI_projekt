@@ -15,22 +15,17 @@ _MODEL_REGISTRY = {
 }
 
 
-def build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Tworzy cechy do modelu i zamienia nazwy krajów na liczby."""
+def build_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Tworzy cechy do modelu na podstawie daty i wspolrzednych."""
     df = df.copy()
     df["year"] = df["dt"].dt.year
     df["month"] = df["dt"].dt.month
 
-    # zamieniamy string "Poland" -> liczba 47 itd.
-    codes, uniques = pd.factorize(df["Country"])
-    df["country_code"] = codes
-    country_encoder = {country: int(idx) for idx, country in enumerate(uniques)}
-
-    cols = ["year", "month", "Latitude", "Longitude", "country_code", "AverageTemperature"]
+    cols = ["year", "month", "Latitude", "Longitude", "AverageTemperature"]
     features_df = df[cols]
 
-    print(f"[build_features] Przygotowano cechy dla {len(features_df)} wierszy. Krajów: {len(country_encoder)}.")
-    return features_df, country_encoder
+    print(f"[build_features] Przygotowano cechy dla {len(features_df)} wierszy.")
+    return features_df
 
 
 def split_data(

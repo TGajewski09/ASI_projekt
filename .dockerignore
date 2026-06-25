@@ -25,6 +25,11 @@ data/06_models/engineered_model_rf.pkl
 data/06_models/country_encoder.json
 data/06_models/.gitkeep
 
+# model AutoGluon podajemy przez wolumen, wiec nie musi byc w kontekscie budowy
+data/06_models/autogluon/
+data/06_models/retrained_model.pkl
+data/sample/
+
 # logi i srodowiska
 automl_run.log
 .venv-automl/

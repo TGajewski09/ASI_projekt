@@ -4,6 +4,8 @@ services:
     container_name: temperature-api
     ports:
       - "8000:8000"
+    volumes:
+      - ./data/06_models/autogluon:/app/data/06_models/autogluon:ro
     networks:
       - mlops-network
 

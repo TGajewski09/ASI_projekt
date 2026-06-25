@@ -7,12 +7,14 @@ from sklearn.model_selection import RandomizedSearchCV, train_test_split
 
 
 def make_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Tworzy cechy pochodne, zachowujac pelna informacje geograficzna
+    """Tworzy cechy pochodne na podstawie daty i wspolrzednych.
 
     Dla cech bazowych (year, month, Latitude, Longitude) tworzymy przeksztalcenia:
     - decade (grupy lat)
-    - abs_latitude (odleglosc od rownika)
-    - country_label (kod kraju).
+    - abs_latitude (odleglosc od rownika).
+
+    Polozenie opisuja same wspolrzedne (Latitude, Longitude), dlatego nie
+    korzystamy juz z kraju - byloby to nadmiarowe.
     """
     df = df.copy()
 
@@ -27,9 +29,6 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
     # 3. Odleglosc od rownika
     df["abs_latitude"] = df["Latitude"].abs()
 
-    # 4. Label Encoding dla kraju
-    df["country_label"], countries = pd.factorize(df["Country"])
-
     cols = [
         "year",
         "month",
@@ -37,13 +36,11 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
         "Latitude",
         "Longitude",
         "abs_latitude",
-        "Country",
-        "country_label",
         "AverageTemperature",
     ]
     features_df = df[cols]
 
-    print(f"[make_features] Dodano cechy. Liczba krajow: {len(countries)}")
+    print(f"[make_features] Przygotowano cechy dla {len(features_df)} wierszy.")
     return features_df
 
 
@@ -93,12 +90,31 @@ def analyze_feature_importance(
 def split_features_data(
     df: pd.DataFrame, test_size: float, random_state: int
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    
+
     """Podział danych na treningowe i testowe"""
     train, test = train_test_split(df, test_size=test_size, random_state=random_state)
 
     print(f"[split_features_data] Train: {len(train)}, test: {len(test)}")
     return train, test
+
+
+def generate_drift_baseline(train_data: pd.DataFrame) -> dict:
+    """Tworzy zakresy danych treningowych potrzebne do monitoringu."""
+    numeric = {}
+    for feature in ["year", "month", "Latitude", "Longitude"]:
+        if feature in ["year", "month"]:
+            numeric[feature] = {
+                "min": int(train_data[feature].min()),
+                "max": int(train_data[feature].max()),
+            }
+        else:
+            numeric[feature] = {
+                "min": float(train_data[feature].min()),
+                "max": float(train_data[feature].max()),
+            }
+
+    print("[generate_drift_baseline] Przygotowano zakresy cech do API.")
+    return {"numeric": numeric}
 
 
 def train_random_forest_model(

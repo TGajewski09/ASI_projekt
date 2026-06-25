@@ -1,0 +1,16 @@
+automl:
+  target: AverageTemperature
+  features:
+    - year
+    - month
+    - decade
+    - Latitude
+    - Longitude
+    - abs_latitude
+  sample_size: 100000
+  test_sample_size: 50000
+  time_limit: 300
+  random_state: 42
+  model_path: data/06_models/autogluon
+  tracking_uri: sqlite:///mlflow.db
+  experiment: temperature_regression

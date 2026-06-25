@@ -57,6 +57,10 @@ tuned_model_rf:
   filepath: data/06_models/tuned_model_rf.pkl
   backend: pickle
 
+drift_baseline:
+  type: json.JSONDataset
+  filepath: data/06_models/drift_baseline.json
+
 feature_selection_report:
   type: kedro_mlflow.io.artifacts.MlflowArtifactDataset
   dataset:
@@ -80,10 +84,6 @@ tuning_report:
   dataset:
     type: json.JSONDataset
     filepath: data/08_reporting/tuning_report.json
-
-country_encoder:
-  type: json.JSONDataset
-  filepath: data/06_models/country_encoder.json
 
 train_data:
   type: pandas.ParquetDataset
@@ -125,6 +125,10 @@ model_comparison:
 automl_metrics:
   type: json.JSONDataset
   filepath: data/08_reporting/automl_metrics.json
+
+automl_leaderboard:
+  type: json.JSONDataset
+  filepath: data/08_reporting/automl_leaderboard.json
 
 final_model_comparison:
   type: kedro_mlflow.io.artifacts.MlflowArtifactDataset

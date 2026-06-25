@@ -1,6 +1,12 @@
 from kedro.pipeline import Pipeline, node, pipeline
 
-from .nodes import filter_modern_era, generate_report, parse_coordinates, remove_duplicates, remove_nulls
+from .nodes import (
+    filter_modern_era,
+    generate_report,
+    parse_coordinates,
+    remove_duplicates,
+    remove_nulls,
+)
 
 
 def create_pipeline(**kwargs) -> Pipeline:
