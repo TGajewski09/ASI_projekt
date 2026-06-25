@@ -26,6 +26,9 @@ data/**
 !data/06_models/country_label_encoder.json
 !data/06_models/drift_baseline.json
 
+# probka danych do Continuous Training (mala, commitowalna)
+!data/sample/temperatures_sample.csv
+
 # ignore kedro-viz metadata
 .viz
 
