@@ -1,7 +1,8 @@
 import json
+import os
+from pathlib import Path
 
 import pandas as pd
-from autogluon.tabular import TabularPredictor
 from fastapi import FastAPI
 from prometheus_client import Counter, Histogram, make_asgi_app
 
@@ -21,17 +22,33 @@ DRIFT_COUNTER = Counter(
     ["feature"],
 )
 
-# Model AutoGluon persist()
-predictor = TabularPredictor.load("data/06_models/autogluon")
-predictor.persist()
+# Katalog z modelem i artefaktami. W Dockerze model podajemy przez wolumen,
+# wiec sciezke da sie podmienic zmienna srodowiskowa MODEL_DIR.
+MODEL_DIR = Path(os.getenv("MODEL_DIR", "data/06_models"))
 
-# enkoder Country - country_label
-with open("data/06_models/country_label_encoder.json", encoding="utf-8") as f:
+# enkoder Country -> country_label oraz zakresy treningowe (do wykrywania driftu)
+with open(MODEL_DIR / "country_label_encoder.json", encoding="utf-8") as f:
     country_encoder: dict = json.load(f)
-with open("data/06_models/drift_baseline.json", encoding="utf-8") as f:
+with open(MODEL_DIR / "drift_baseline.json", encoding="utf-8") as f:
     baseline = json.load(f)
 
 FEATURES = ["year", "month", "decade", "Latitude", "Longitude", "abs_latitude", "country_label"]
+
+# Model AutoGluon ladujemy leniwie - dopiero przy pierwszym zapytaniu. Dzieki temu
+# modul mozna zaimportowac (np. w testach CI) bez ciezkiego pakietu autogluon
+# i bez samego modelu na dysku.
+_predictor = None
+
+
+def get_predictor():
+    """Laduje i zapamietuje model AutoGluon (tylko przy pierwszym wywolaniu)."""
+    global _predictor
+    if _predictor is None:
+        from autogluon.tabular import TabularPredictor
+
+        _predictor = TabularPredictor.load(str(MODEL_DIR / "autogluon"))
+        _predictor.persist()
+    return _predictor
 
 
 def check_drift(year: int, month: int, latitude: float, longitude: float, country: str) -> list[str]:
@@ -68,7 +85,7 @@ def predict(year: int, month: int, latitude: float, longitude: float, country: s
             "country_label": code,
         }])[FEATURES]
 
-        prediction = float(predictor.predict(input_data).iloc[0])
+        prediction = float(get_predictor().predict(input_data).iloc[0])
         PREDICTION_COUNTER.inc()
         PREDICTION_VALUE.observe(prediction)
 

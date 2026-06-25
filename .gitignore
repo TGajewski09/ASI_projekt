@@ -22,6 +22,10 @@ data/**
 !data/01_raw/reviews.csv
 !data/01_raw/shuttles.xlsx
 
+# male pliki potrzebne do uruchomienia API (generowane przez scripts/build_serving_artifacts.py)
+!data/06_models/country_label_encoder.json
+!data/06_models/drift_baseline.json
+
 # ignore kedro-viz metadata
 .viz
 
