@@ -9,9 +9,10 @@ from sklearn.model_selection import RandomizedSearchCV, train_test_split
 def make_features(df: pd.DataFrame) -> pd.DataFrame:
     """Tworzy cechy pochodne, zachowujac pelna informacje geograficzna
 
-    Do cech bazowych (year, month, Latitude, Longitude) dokladamy przeksztalcenia:
-    decade (grupy lat), abs_latitude (odleglosc od rownika) i country_label (kod kraju).
-    Latitude i Longitude zostaja, zeby nie tracic informacji o polkuli i dlugosci geograficznej
+    Dla cech bazowych (year, month, Latitude, Longitude) tworzymy przeksztalcenia:
+    - decade (grupy lat)
+    - abs_latitude (odleglosc od rownika)
+    - country_label (kod kraju).
     """
     df = df.copy()
 
@@ -36,6 +37,7 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
         "Latitude",
         "Longitude",
         "abs_latitude",
+        "Country",
         "country_label",
         "AverageTemperature",
     ]

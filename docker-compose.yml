@@ -1,0 +1,24 @@
+services:
+  temperature-api:
+    build: .
+    container_name: temperature-api
+    ports:
+      - "8000:8000"
+    networks:
+      - mlops-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - temperature-api
+    networks:
+      - mlops-network
+
+networks:
+  mlops-network:
+    driver: bridge
