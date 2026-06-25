@@ -3,6 +3,7 @@ from kedro.pipeline import Pipeline, node, pipeline
 from .nodes import (
     analyze_feature_importance,
     evaluate_model,
+    generate_drift_baseline,
     make_features,
     split_features_data,
     train_random_forest_model,
@@ -27,6 +28,12 @@ def create_pipeline(**kwargs) -> Pipeline:
             ],
             outputs=["engineered_train_data", "engineered_test_data"],
             name="split_features_data_node",
+        ),
+        node(
+            func=generate_drift_baseline,
+            inputs="engineered_train_data",
+            outputs="drift_baseline",
+            name="generate_drift_baseline_node",
         ),
         node(
             func=analyze_feature_importance,

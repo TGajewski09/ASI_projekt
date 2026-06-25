@@ -1,7 +1,10 @@
 """Testy jednostkowe wezla make_features (pipeline feature_engineering)."""
 import pandas as pd
 
-from new_kedro_project.pipelines.feature_engineering.nodes import make_features
+from new_kedro_project.pipelines.feature_engineering.nodes import (
+    generate_drift_baseline,
+    make_features,
+)
 
 
 def test_make_features_creates_derived_columns():
@@ -24,3 +27,25 @@ def test_make_features_creates_derived_columns():
     assert list(out["abs_latitude"]) == [52.0, 33.0]
     # polozenie opisuja wspolrzedne - kraju juz nie kodujemy
     assert "country_label" not in out.columns
+
+
+def test_generate_drift_baseline_creates_api_ranges():
+    train = pd.DataFrame(
+        {
+            "year": [1900, 2013],
+            "month": [1, 12],
+            "Latitude": [-10.5, 52.0],
+            "Longitude": [18.0, 21.5],
+        }
+    )
+
+    baseline = generate_drift_baseline(train)
+
+    assert baseline == {
+        "numeric": {
+            "year": {"min": 1900, "max": 2013},
+            "month": {"min": 1, "max": 12},
+            "Latitude": {"min": -10.5, "max": 52.0},
+            "Longitude": {"min": 18.0, "max": 21.5},
+        }
+    }

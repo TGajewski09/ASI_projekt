@@ -98,6 +98,25 @@ def split_features_data(
     return train, test
 
 
+def generate_drift_baseline(train_data: pd.DataFrame) -> dict:
+    """Tworzy zakresy danych treningowych potrzebne do monitoringu."""
+    numeric = {}
+    for feature in ["year", "month", "Latitude", "Longitude"]:
+        if feature in ["year", "month"]:
+            numeric[feature] = {
+                "min": int(train_data[feature].min()),
+                "max": int(train_data[feature].max()),
+            }
+        else:
+            numeric[feature] = {
+                "min": float(train_data[feature].min()),
+                "max": float(train_data[feature].max()),
+            }
+
+    print("[generate_drift_baseline] Przygotowano zakresy cech do API.")
+    return {"numeric": numeric}
+
+
 def train_random_forest_model(
     train_data: pd.DataFrame,
     features: list[str],
